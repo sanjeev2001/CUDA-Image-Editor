@@ -32,6 +32,11 @@ class ImageDisplayApp(QMainWindow):
         grayscale_button.clicked.connect(self.applyGrayscale)
         layout.addWidget(grayscale_button)
 
+        # Create 'Sepia' button
+        sepia_button = QPushButton('Sepia', self)
+        sepia_button.clicked.connect(self.applySepia)
+        layout.addWidget(sepia_button)
+
         # Set up the main window
         self.setGeometry(100, 100, 800, 600)
         self.setWindowTitle('Image Display App')
@@ -57,8 +62,7 @@ class ImageDisplayApp(QMainWindow):
     def applyGrayscale(self):
         if self.pixmap:
             # CUDA implementation ==> 1.9970204830169678 seconds for 8k image
-            image = self.pixmap.toImage()
-            image = image.convertToFormat(QImage.Format.Format_RGBA8888)
+            image = self.pixmap.toImage().convertToFormat(QImage.Format.Format_RGBA8888)
             width = image.width()
             height = image.height()
             ptr = image.constBits()
@@ -80,6 +84,24 @@ class ImageDisplayApp(QMainWindow):
             self.image_label.adjustSize()
             
             # 44.3x increase in speed using CUDA
+
+    def applySepia(self):
+        if self.pixmap:
+            image = self.pixmap.toImage()
+            image = image.convertToFormat(QImage.Format.Format_RGBA8888)
+            width = image.width()
+            height = image.height()
+
+            for x in range(width):
+                for y in range(height):
+                    color = QColor(image.pixel(x, y))
+                    sr = min(int(0.393 * color.red() + 0.769 * color.green() + 0.189 * color.blue()), 255)
+                    sg = min(int(0.349 * color.red() + 0.686 * color.green() + 0.168 * color.blue()), 255)
+                    sb = min(int(0.272 * color.red() + 0.534 * color.green() + 0.131 * color.blue()), 255)
+                    sepia_color = QColor(sr, sg, sb, color.alpha())
+                    image.setPixelColor(x, y, sepia_color)
+            self.image_label.setPixmap(QPixmap.fromImage(image).scaled(self.image_label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            self.image_label.adjustSize()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
