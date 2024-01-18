@@ -4,6 +4,7 @@ from PyQt6.QtGui import QPixmap, QImage, QColor
 from PyQt6.QtCore import Qt
 import numpy as np
 import cupy as cp
+import time
 
 class ImageDisplayApp(QMainWindow):
     def __init__(self):
@@ -55,7 +56,9 @@ class ImageDisplayApp(QMainWindow):
 
     def applyGrayscale(self):
         if self.pixmap:
-            image = self.pixmap.toImage().convertToFormat(QImage.Format.Format_RGBA8888)
+            # CUDA implementation ==> 1.9970204830169678 seconds for 8k image
+            image = self.pixmap.toImage()
+            image = image.convertToFormat(QImage.Format.Format_RGBA8888)
             width = image.width()
             height = image.height()
             ptr = image.constBits()
@@ -63,12 +66,20 @@ class ImageDisplayApp(QMainWindow):
             arr = np.frombuffer(ptr, np.uint8).reshape((height, width, 4))
             img_gpu = cp.array(arr, dtype=cp.float32)
             gray_array = self.rgbToGray(img_gpu)
-            print(gray_array.data)
             gray_image = QImage(gray_array.data, width, height, gray_array.strides[0], QImage.Format.Format_Grayscale8)
+            
+            # cpu implementation ==> 88.46851062774658 seconds for 8k image
+            # for x in range(width):
+            #     for y in range(height):
+            #         color = QColor(image.pixel(x, y))
+            #         gray_value = int(color.red() * 0.299) + int(color.green() * 0.587) + int(color.blue() * 0.114)
+            #         gray_color = QColor(gray_value, gray_value, gray_value)
+            #         image.setPixelColor(x, y, gray_color)
 
             self.image_label.setPixmap(QPixmap.fromImage(gray_image).scaled(self.image_label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
             self.image_label.adjustSize()
-
+            
+            # 44.3x increase in speed using CUDA
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
